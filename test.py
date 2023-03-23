@@ -4,7 +4,7 @@ from bcc.utils import printb
 device = "lo" #2
 b = BPF(src_file="udp_counter.c") #3
 fn = b.load_func("udp_counter", BPF.XDP) #4
-b.attach_xdp(device, fn, 0) #5
+b.attach_xdp("lo", fn, 0) #5
 b.attach_xdp("ens33", fn, 0) #5
 try:
     b.trace_print() #6
