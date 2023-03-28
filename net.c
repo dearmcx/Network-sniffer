@@ -17,11 +17,17 @@
 #define memcpy(dest, src, n) __builtin_memcpy((dest), (src), (n))
 #endif
 
+
+#ifndef malloc
+#define malloc(n)  __builtin_malloc((n))
+#endif
+
+
 BPF_HISTOGRAM(counter, u64);
-BPF_RINGBUF_OUTPUT(buffer, 1 << 4);
+BPF_RINGBUF_OUTPUT(buffer, 1);
+BPF_RINGBUF_OUTPUT(packet, 1);
 
 
-/*
 struct filter
 {
     //u8 id;
@@ -29,10 +35,10 @@ struct filter
     //u8 action;
     u32 srcip;
     u32 dstip;
-    //unsigned int do_sport;
-    //unsigned int do_dport;
+    unsigned int do_sport;
+    unsigned int do_dport;
 };
-*/
+
 
 
 
@@ -51,6 +57,8 @@ struct event {
 };
 
 BPF_ARRAY(filter, u32,64);
+
+BPF_HASH(filter1,u32 ,struct filter,64);
 
 
 int net_filter(struct xdp_md *ctx)
@@ -72,7 +80,10 @@ int net_filter(struct xdp_md *ctx)
     if ((void *)eth + sizeof(*eth) <= data_end)
     {
     
-    
+     int len = data_end-data;
+     bpf_trace_printk("len %d ",len);
+     if(len <= (void *)(long)ctx->data-(void *)(long)ctx->data_end)
+     {packet.ringbuf_output((unsigned int *)ctx->data, len, 0);}
     if (eth->h_proto == htons(ETH_P_IP))
     {
     
@@ -98,18 +109,39 @@ int net_filter(struct xdp_md *ctx)
         event.daddr = cpu_to_be32(iph->daddr);
         int key = 0;
   	unsigned int  *val;
-  	val = filter.lookup(&key);
+  	struct filter *val1;
+  	//val = filter.lookup(&key);
+  	        int key1 = 0;
+  	val1 = filter1.lookup(&key1);
+  	/*
   	if (val == NULL) {
+  	bpf_trace_printk("NULL1");
         	return XDP_PASS;
+    	}*/
+  	if (val1 == NULL) {
+  	bpf_trace_printk("NULL2");
+        	return XDP_DROP;
     	}
-  	bpf_trace_printk("filter : %d ",*val);
-  	bpf_trace_printk("filter : %x ",event.daddr); 
+  	bpf_trace_printk("filter0: %x ",*val);
+  	bpf_trace_printk("filter1 : %x ",event.saddr); 
+  	bpf_trace_printk("filter1 : %x ",event.daddr);   	
   	
-  	
-  	
+  	/*
   	if((*val) == event.saddr){
   		return XDP_DROP;
   	}
+  	*/
+  	bpf_trace_printk("filter2 : %x ",val1->srcip);
+  	bpf_trace_printk("filter2 : %x ",val1->dstip);
+  	bpf_trace_printk("filter2 : %x ",val1->do_sport);
+  	bpf_trace_printk("filter2 : %x ",val1->do_dport);
+  	if(val1->srcip == event.saddr){
+  		return XDP_DROP;
+  	}
+  	if(val1->dstip == event.daddr){
+  		return XDP_DROP;
+  	}  	
+  	
         
         
         switch (iph->protocol)
