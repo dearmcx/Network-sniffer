@@ -34,30 +34,32 @@ def callback(ctx, data, size):
 
 def print_recv_pkg(cpu, data, size):
     event = b["unix_recv_events"].event(data)
-    for i in range(0, event.recv_len):
-    	print(i)
+    print("----------------", end="")
     for i in range(0, event.recv_len-1):
-        print("%02x " % event.pkt[i], end="")
+        
+        print("%02x " %event.pkt[i], end="")
         sys.stdout.flush()
         if (i+1)%16 == 0:
             print("")
             print("----------------", end="")
     print("\n----------------recv %d bytes" % event.recv_len)
-   
+    print("\n----------------proto:%d" % event.proto)  
+    if event.sport !=0:
+    	print("sport:%d" % event.sport)
 
 
-b["unix_recv_events"].open_perf_buffer(print_recv_pkg)
+b["unix_recv_events"].open_ring_buffer(print_recv_pkg)
 #b["unix_recv_events"].open_ring_buffer(print_recv_pkg)
 #b["events"].open_perf_buffer(cb)
 #b['packet'].open_ring_buffer(callback1)
 
 try:
     while 1:
-        #b.ring_buffer_poll()
+        b.ring_buffer_poll()
         #b.trace_print()
-        b.perf_buffer_poll()
+        #b.perf_buffer_poll()
         # or b.ring_buffer_consume()
-        #time.sleep(0.5)
+        #time.sleep(10)
 except KeyboardInterrupt:
     b.remove_xdp("ens33", 0) 
     sys.exit()
